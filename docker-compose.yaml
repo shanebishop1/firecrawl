@@ -10,17 +10,12 @@ x-common-service: &common-service
     nofile:
       soft: 65535
       hard: 65535
-  networks:
-    - backend
-  extra_hosts:
-    - "host.docker.internal:host-gateway"
   logging:
     driver: "json-file"
     options:
       max-size: "10m"
       max-file: "3"
       compress: "true"
-
 x-common-env: &common-env
   REDIS_URL: ${REDIS_URL:-redis://redis:6379}
   REDIS_RATE_LIMIT_URL: ${REDIS_URL:-redis://redis:6379}
@@ -52,11 +47,53 @@ x-common-env: &common-env
   PROXY_SERVER: ${PROXY_SERVER}
   PROXY_USERNAME: ${PROXY_USERNAME}
   PROXY_PASSWORD: ${PROXY_PASSWORD}
+  HTTP_PROXY: ${HTTP_PROXY}
+  HTTPS_PROXY: ${HTTPS_PROXY}
+  ALL_PROXY: ${ALL_PROXY}
+  NO_PROXY: ${NO_PROXY}
   SEARXNG_ENDPOINT: ${SEARXNG_ENDPOINT}
   SEARXNG_ENGINES: ${SEARXNG_ENGINES}
   SEARXNG_CATEGORIES: ${SEARXNG_CATEGORIES}
 
 services:
+  egress-1:
+    image: tailscale/tailscale:latest
+    profiles:
+      - host-egress
+    hostname: ${HOST_EGRESS_TAILSCALE_HOSTNAME:-egress-1}
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      TS_AUTHKEY: ${HOST_EGRESS_TAILSCALE_AUTH_KEY}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_HOSTNAME: ${HOST_EGRESS_TAILSCALE_HOSTNAME:-egress-1}
+      TS_AUTH_ONCE: "true"
+      TS_ACCEPT_DNS: "false"
+      TS_USERSPACE: "false"
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: ${HOST_EGRESS_TAILSCALE_LOCAL_ADDR_PORT:-0.0.0.0:9002}
+      TS_EXTRA_ARGS: ${HOST_EGRESS_TAILSCALE_EXTRA_ARGS}
+      TZ: ${TZ:-America/Los_Angeles}
+    networks:
+      - backend
+    volumes:
+      - egress-1-tailscale-state:/var/lib/tailscale
+    ports:
+      - "${HOST_EGRESS_TAILSCALE_PROXY_BIND_HOST:-127.0.0.1}:${HOST_EGRESS_TAILSCALE_PROXY_BIND_PORT:-13128}:8888/tcp"
+      - "${PORT:-3002}:${INTERNAL_PORT:-3002}"
+
+  egress-1-proxy:
+    build: docker/host-egress-proxy
+    profiles:
+      - host-egress
+    restart: unless-stopped
+    depends_on:
+      - egress-1
+    network_mode: "service:egress-1"
+
   playwright-service:
     # NOTE: If you don't want to build the service locally,
     # comment out the build: statement and uncomment the image: statement
@@ -68,11 +105,14 @@ services:
       PROXY_USERNAME: ${PROXY_USERNAME}
       PROXY_PASSWORD: ${PROXY_PASSWORD}
       ALLOW_LOCAL_WEBHOOKS: ${ALLOW_LOCAL_WEBHOOKS}
+      HTTP_PROXY: ${HTTP_PROXY}
+      HTTPS_PROXY: ${HTTPS_PROXY}
+      ALL_PROXY: ${ALL_PROXY}
+      NO_PROXY: ${NO_PROXY}
       BLOCK_MEDIA: ${BLOCK_MEDIA}
       # Configure maximum concurrent pages for Playwright browser instances
       MAX_CONCURRENT_PAGES: ${CRAWL_CONCURRENT_REQUESTS:-10}
-    networks:
-      - backend
+    network_mode: "service:egress-1"
     # Resource limits for Docker Compose (not Swarm)
     cpus: 2.0
     mem_limit: 4G
@@ -92,6 +132,7 @@ services:
       <<: *common-env
       HOST: "0.0.0.0"
       PORT: ${INTERNAL_PORT:-3002}
+      PLAYWRIGHT_MICROSERVICE_URL: http://127.0.0.1:3000/scrape
       EXTRACT_WORKER_PORT: ${EXTRACT_WORKER_PORT:-3004}
       WORKER_PORT: ${WORKER_PORT:-3005}
       NUQ_RABBITMQ_URL: amqp://rabbitmq:5672
@@ -103,8 +144,7 @@ services:
         condition: service_started
       rabbitmq:
         condition: service_healthy
-    ports:
-      - "${PORT:-3002}:${INTERNAL_PORT:-3002}"
+    network_mode: "service:egress-1"
     command: node dist/src/harness.js --start-docker
     # Resource limits for Docker Compose (not Swarm)
     # Increase if you have more CPU cores/RAM available
@@ -165,3 +205,6 @@ services:
 networks:
   backend:
     driver: bridge
+
+volumes:
+  egress-1-tailscale-state:
