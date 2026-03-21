@@ -3,8 +3,8 @@ name: firecrawl
 x-common-service: &common-service
   # NOTE: If you don't want to build the service locally,
   # comment out the build: statement and uncomment the image: statement
-  # image: ghcr.io/firecrawl/firecrawl
-  build: apps/api
+  image: ghcr.io/firecrawl/firecrawl:latest
+  pull_policy: always
 
   ulimits:
     nofile:
@@ -25,7 +25,9 @@ x-common-env: &common-env
   POSTGRES_DB: ${POSTGRES_DB:-postgres}
   POSTGRES_HOST: ${POSTGRES_HOST:-nuq-postgres}
   POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  NUQ_DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@${POSTGRES_HOST:-nuq-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-postgres}
   USE_DB_AUTHENTICATION: ${USE_DB_AUTHENTICATION:-false}
+  NUQ_WORKER_COUNT: ${NUQ_WORKER_COUNT:-1}
   NUM_WORKERS_PER_QUEUE: ${NUM_WORKERS_PER_QUEUE:-8}
   CRAWL_CONCURRENT_REQUESTS: ${CRAWL_CONCURRENT_REQUESTS:-10}
   MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-5}
@@ -97,8 +99,8 @@ services:
   playwright-service:
     # NOTE: If you don't want to build the service locally,
     # comment out the build: statement and uncomment the image: statement
-    # image: ghcr.io/firecrawl/playwright-service:latest
-    build: apps/playwright-service-ts
+    image: ghcr.io/firecrawl/playwright-service:latest
+    pull_policy: always
     environment:
       PORT: 3000
       PROXY_SERVER: ${PROXY_SERVER}
@@ -113,18 +115,12 @@ services:
       # Configure maximum concurrent pages for Playwright browser instances
       MAX_CONCURRENT_PAGES: ${CRAWL_CONCURRENT_REQUESTS:-10}
     network_mode: "service:egress-1"
-    # Resource limits for Docker Compose (not Swarm)
-    cpus: 2.0
-    mem_limit: 4G
-    memswap_limit: 4G
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
         compress: "true"
-    tmpfs:
-      - /tmp/.cache:noexec,nosuid,size=1g
 
   api:
     <<: *common-service
@@ -145,12 +141,7 @@ services:
       rabbitmq:
         condition: service_healthy
     network_mode: "service:egress-1"
-    command: node dist/src/harness.js --start-docker
-    # Resource limits for Docker Compose (not Swarm)
-    # Increase if you have more CPU cores/RAM available
-    cpus: 4.0
-    mem_limit: 8G
-    memswap_limit: 8G
+    command: sh -lc 'node -e "const fs=require(\"fs\");const p=\"dist/src/utils/integration.js\";if(fs.existsSync(p)){let t=fs.readFileSync(p,\"utf8\");if(!t.includes(\"IntegrationEnum[\\\"CLI\\\"]\")){t=t.replace(\"})(IntegrationEnum || (IntegrationEnum = {}));\",\"    IntegrationEnum[\\\"CLI\\\"] = \\\"cli\\\";\\n})(IntegrationEnum || (IntegrationEnum = {}));\");fs.writeFileSync(p,t);}}" && exec node dist/src/harness.js --start-docker'
 
   redis:
     # NOTE: If you want to use Valkey (open source) instead of Redis (source available),
