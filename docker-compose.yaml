@@ -53,7 +53,7 @@ x-common-env: &common-env
   HTTPS_PROXY: ${HTTPS_PROXY}
   ALL_PROXY: ${ALL_PROXY}
   NO_PROXY: ${NO_PROXY}
-  SEARXNG_ENDPOINT: ${SEARXNG_ENDPOINT}
+  SEARXNG_ENDPOINT: ${SEARXNG_ENDPOINT:-http://127.0.0.1:8080}
   SEARXNG_ENGINES: ${SEARXNG_ENGINES}
   SEARXNG_CATEGORIES: ${SEARXNG_CATEGORIES}
 
@@ -142,6 +142,17 @@ services:
         condition: service_healthy
     network_mode: "service:egress-1"
     command: sh -lc 'node -e "const fs=require(\"fs\");const p=\"dist/src/utils/integration.js\";if(fs.existsSync(p)){let t=fs.readFileSync(p,\"utf8\");if(!t.includes(\"IntegrationEnum[\\\"CLI\\\"]\")){t=t.replace(\"})(IntegrationEnum || (IntegrationEnum = {}));\",\"    IntegrationEnum[\\\"CLI\\\"] = \\\"cli\\\";\\n})(IntegrationEnum || (IntegrationEnum = {}));\");fs.writeFileSync(p,t);}}" && exec node dist/src/harness.js --start-docker'
+
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://127.0.0.1:8080/}
+      BIND_ADDRESS: ${SEARXNG_BIND_ADDRESS:-0.0.0.0:8080}
+    volumes:
+      - ./docker/searxng:/etc/searxng:rw
+    network_mode: "service:egress-1"
 
   redis:
     # NOTE: If you want to use Valkey (open source) instead of Redis (source available),
