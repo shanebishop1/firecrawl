@@ -85,7 +85,7 @@ services:
       - egress-1-tailscale-state:/var/lib/tailscale
     ports:
       - "${HOST_EGRESS_TAILSCALE_PROXY_BIND_HOST:-127.0.0.1}:${HOST_EGRESS_TAILSCALE_PROXY_BIND_PORT:-13128}:8888/tcp"
-      - "${PORT:-3002}:${INTERNAL_PORT:-3002}"
+      - "127.0.0.1:${PORT:-3002}:${INTERNAL_PORT:-3002}"
 
   egress-1-proxy:
     build: docker/host-egress-proxy

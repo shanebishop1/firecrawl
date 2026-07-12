@@ -125,17 +125,19 @@ BULL_AUTH_KEY=CHANGEME
 ### Security considerations
 
 - **Use strong PostgreSQL credentials.** The defaults in the `.env` template are for local development only. When deploying to a server, set `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` to secure values and ensure they match the database service configuration.
-- **Keep the database port internal.** The provided `docker-compose.yaml` does not expose PostgreSQL to the host or the internet. Avoid adding a `ports` mapping for `nuq-postgres` unless you are restricting access with a firewall. To access the database for maintenance, prefer using `docker compose exec nuq-postgres psql` or a temporary, firewalled tunnel.
+- **Keep the database port internal.** The provided `docker-compose.yaml` does not expose PostgreSQL to the host or the internet. Avoid adding a `ports` mapping for `nuq-postgres` unless you are restricting access with a firewall. To access the database for maintenance, prefer using `docker compose --profile host-egress exec nuq-postgres psql` or a temporary, firewalled tunnel.
 - **Protect the admin UI.** Set `BULL_AUTH_KEY` to a strong secret, especially on any deployment reachable from untrusted networks.
 
 3.  Build and run the Docker containers:
 
     ```bash
-    docker compose build
-    docker compose up
+    docker compose --profile host-egress build
+    docker compose --profile host-egress up
     ```
 
     If you encounter an error, make sure you're using `docker compose` and not `docker-compose`.
+
+    The API port is always published to `127.0.0.1`. For remote access, expose it through Tailscale or a reverse proxy configured outside this Compose project; the Compose configuration does not support publishing the API directly on wildcard or other host addresses.
     
     This will run a local instance of Firecrawl which can be accessed at `http://localhost:3002`.
     
