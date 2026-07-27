@@ -6,5 +6,31 @@ search:
     - json
     - csv
 
+engines:
+  - name: google cse
+    weight: 2.0
+    disabled: false
+  - name: bing
+    weight: 1.5
+    disabled: false
+  - name: brave
+    weight: 1.3
+    disabled: false
+  - name: startpage
+    weight: 1.2
+    disabled: false
+  - name: duckduckgo
+    weight: 1.1
+    disabled: false
+  - name: qwant
+    weight: 1.0
+    disabled: false
+  - name: yahoo
+    weight: 0.9
+    disabled: false
+  - name: mojeek
+    weight: 0.8
+    disabled: false
+
 server:
   secret_key: "firecrawl-searxng-local"
