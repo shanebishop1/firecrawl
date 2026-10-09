@@ -128,6 +128,7 @@ services:
       <<: *common-env
       HOST: "0.0.0.0"
       PORT: ${INTERNAL_PORT:-3002}
+      HARNESS_STARTUP_TIMEOUT_MS: ${HARNESS_STARTUP_TIMEOUT_MS:-180000}
       PLAYWRIGHT_MICROSERVICE_URL: http://127.0.0.1:3000/scrape
       EXTRACT_WORKER_PORT: ${EXTRACT_WORKER_PORT:-3004}
       WORKER_PORT: ${WORKER_PORT:-3005}
@@ -173,15 +174,21 @@ services:
     
   rabbitmq:
     image: rabbitmq:3-management
+    # If the broker exits, the API has no queue; bring it back automatically.
+    restart: unless-stopped
     networks:
       - backend
     command: rabbitmq-server
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
+      # A TCP connect to the AMQP listener, which opens once the broker has
+      # booted. rabbitmq-diagnostics starts a whole Erlang VM per probe; every
+      # 5 s those piled up under CPU contention (22 at once on 2026-10-09).
+      test: ["CMD", "timeout", "5", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5672"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+      start_interval: 5s
     logging:
       driver: "json-file"
       options:
