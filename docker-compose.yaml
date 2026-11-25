@@ -145,8 +145,10 @@ services:
     command: sh -lc 'node -e "const fs=require(\"fs\");const p=\"dist/src/utils/integration.js\";if(fs.existsSync(p)){let t=fs.readFileSync(p,\"utf8\");if(!t.includes(\"IntegrationEnum[\\\"CLI\\\"]\")){t=t.replace(\"})(IntegrationEnum || (IntegrationEnum = {}));\",\"    IntegrationEnum[\\\"CLI\\\"] = \\\"cli\\\";\\n})(IntegrationEnum || (IntegrationEnum = {}));\");fs.writeFileSync(p,t);}}" && exec node dist/src/harness.js --start-docker'
 
   searxng:
-    image: docker.io/searxng/searxng:latest
-    pull_policy: always
+    # Pinned: engine scrapers break as search sites change, so move this
+    # deliberately and re-check docker/searxng/settings.yml when you do.
+    image: docker.io/searxng/searxng:2026.11.23-a7163d091@sha256:a7fc607aa6723f5a8982105bcc5ffba4d1b9fc7c6922a31a88d6e4cba49ef12a
+    pull_policy: missing
     restart: unless-stopped
     environment:
       SEARXNG_BASE_URL: ${SEARXNG_BASE_URL:-http://127.0.0.1:8080/}
