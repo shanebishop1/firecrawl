@@ -1,5 +1,10 @@
 use_default_settings: true
 
+general:
+  # Wikipedia, Wikidata and OpenStreetMap refuse to load without an operator
+  # contact, which goes in their User-Agent. Deliberately generic.
+  contact_url: https://github.com
+
 search:
   formats:
     - html
@@ -37,6 +42,10 @@ engines:
   - name: seznam
     disabled: false
     weight: 0.8
+  - name: wikipedia  # article lookup; "list" makes it a normal result Firecrawl can use
+    disabled: false
+    display_type: [list]
+    weight: 1.0
   # Disabled because they make results worse:
   - name: bing  # returns results for only the first word of multi-word queries (searxng#4964)
     disabled: true
@@ -45,6 +54,8 @@ engines:
   - name: startpage  # Anubis challenge; parsing errors
     disabled: true
   - name: google cse  # no CSE id configured; always rate-limited
+    disabled: true
+  - name: wikidata  # only produces infoboxes, which Firecrawl ignores
     disabled: true
 
 # Drop results that point back into a search engine (Ayo sometimes returns its
