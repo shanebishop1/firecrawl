@@ -47,5 +47,11 @@ engines:
   - name: google cse  # no CSE id configured; always rate-limited
     disabled: true
 
+# Drop results that point back into a search engine (Ayo sometimes returns its
+# own aggregation pages); Firecrawl can't use them.
+hostnames:
+  remove:
+    - '(.*\.)?search\.ayo\.de$'
+
 server:
   secret_key: "firecrawl-searxng-local"
